@@ -58,7 +58,7 @@ def extract_frames_interval(
     # Make sure output directory exists
     if not os.path.exists(output_dir):
         os.makedirs(output_dir, exist_ok=True)
-        print(f"Output directory {output_dir} does not exist. creating...")
+        # print(f"Output directory {output_dir} does not exist. creating...")
 
     # Check if video exists
     if not os.path.exists(video_path):
@@ -86,6 +86,8 @@ def extract_frames_interval(
             if frame_i % interval == 0:
                 # vid_name = video_name if video_name else os.path.basename(video_path).split(".")[0]
                 filename = f"{vid_name}_{frame_i:04d}.jpg"
+                # resize
+                frame = cv2.resize(frame, (320,180))
                 cv2.imwrite(os.path.join(output_dir, filename), frame)
                 # progress_bar.set_postfix_str(f"n={int(frame_i/interval)+1}")
 

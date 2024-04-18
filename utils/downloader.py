@@ -25,7 +25,7 @@ def download_youtube_video(
                 raise FileNotFoundError(
                     f"Output directory {output_path} does not exist."
                 )
-            warnings.warn(f"Output directory {output_path} does not exist. creating...")
+            # warnings.warn(f"Output directory {output_path} does not exist. creating...")
             path.mkdir(parents=True)
         filename = path / (yt.video_id + ".mp4")
     else:
@@ -34,7 +34,7 @@ def download_youtube_video(
                 raise FileNotFoundError(
                     f"Output directory {output_path} does not exist."
                 )
-            warnings.warn(f"Output directory {path.parent} does not exist. creating...")
+            # warnings.warn(f"Output directory {path.parent} does not exist. creating...")
             path.parent.mkdir(parents=True)
         filename = path
         if path.suffix == "":
