@@ -10,8 +10,6 @@ import unittest
 def download_youtube_video(
     link: str, output_path="./download", no_create_dir=False, show_progress=False
 ):
-    if show_progress:
-        print(f"Downloading {link} to {output_path}")
     yt = YouTube(link, on_progress_callback=on_progress if show_progress else None)
     path = pathlib.Path(output_path)
 
@@ -39,6 +37,9 @@ def download_youtube_video(
         filename = path
         if path.suffix == "":
             filename = path.with_suffix(".mp4")
+            
+    if show_progress:
+        print(f"Downloading {link} to {output_path}")
 
     stream = yt.streams.filter(
         progressive=True, file_extension="mp4"
