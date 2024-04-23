@@ -47,7 +47,7 @@ class GameScreenShotDataset(Dataset):
             img_tensor = T.ToTensor()(img)
             
         class_id = int(img_path.parent.name.split(" ")[0])
-        y = np.zeros(len(self.classes))
-        y[class_id] = 1
+        # y = np.zeros(len(self.classes))
+        # y[class_id] = 1
         
-        return img_tensor, tensor(y)
+        return img_tensor, tensor(class_id)
