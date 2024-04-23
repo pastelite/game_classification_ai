@@ -50,4 +50,4 @@ class GameScreenShotDataset(Dataset):
         # y = np.zeros(len(self.classes))
         # y[class_id] = 1
         
-        return img_tensor, tensor(class_id)
+        return img_tensor, tensor(class_id).long()
