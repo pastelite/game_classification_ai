@@ -4,9 +4,11 @@ from PIL import Image
 from torch import Tensor, tensor
 import torch
 import numpy as np
+from torchvision import transforms as T
+from typing import Optional
 
 class GameScreenShotDataset(Dataset):
-    def __init__(self, root, transform=None):
+    def __init__(self, root, transform: Optional[T.Compose] =None):
         self.root = root
         self.transform = transform
         
@@ -40,10 +42,12 @@ class GameScreenShotDataset(Dataset):
         img = Image.open(img_path).convert("RGB")
         # convert to torch
         if self.transform:
-            img = self.transform(img)
+            img_tensor: Tensor = self.transform(img) # type: ignore
+        else:
+            img_tensor = T.ToTensor()(img)
             
         class_id = int(img_path.parent.name.split(" ")[0])
         y = np.zeros(len(self.classes))
         y[class_id] = 1
         
-        return tensor(img).clone().detach().to(torch.float), tensor(y).clone().detach().to(torch.float)
+        return img_tensor, tensor(y)
