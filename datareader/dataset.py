@@ -39,7 +39,7 @@ class GameScreenShotDataset(Dataset):
         
     def __getitem__(self, idx) -> tuple[Tensor,Tensor]:
         img_path = self.data_path[idx]
-        img = Image.open(img_path).convert("RGB")
+        img = Image.open(img_path).convert("HSV")
         # convert to torch
         if self.transform:
             img_tensor: Tensor = self.transform(img) # type: ignore

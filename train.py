@@ -44,6 +44,7 @@ def train_model(
     cur_epoch=0,
     num_epochs=1,
     optimizer=None,
+    scheduler=None,
     limit_dataset_size=None,
     val_dataset=None,
     val_every=100,
@@ -51,27 +52,33 @@ def train_model(
     val_sample_size_epoch=1000,
     model_name="model",
     predict_fix=None,
+    seed=None,
+    dataloader_num_workers=1,
+    model_folder="checkpoints",
 ):
     # Define the loss function and optimizer
     criterion = nn.CrossEntropyLoss()
     if optimizer is None:
         optimizer = optim.Adam(model.parameters(), lr=0.001)
 
-    if limit_dataset_size:
-        dataset = torch.utils.data.Subset(dataset, range(limit_dataset_size))
+    model_folder = os.path.join("checkpoints", model_name)
+    #if limit_dataset_size:
+    #    dataset = torch.utils.data.Subset(dataset, range(limit_dataset_size))
 
     # Create data loader
-    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
+    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True, pin_memory=True,num_workers=dataloader_num_workers)
 
     # Move model to GPU if available
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model.to(device)
+    
+    val_loss_per_epoch = []
 
     # Training loop
     for epoch in range(cur_epoch, cur_epoch+num_epochs):
         running_loss = 0.0
         progress_bar = tqdm(
-            dataloader, desc=f"Epoch {epoch+1}/{num_epochs}", leave=False
+            dataloader, desc=f"Epoch {epoch}/{cur_epoch+num_epochs-1}", leave=False
         )
         for i, (images, labels) in enumerate(progress_bar):
             model.train()
@@ -98,28 +105,44 @@ def train_model(
             progress_bar.set_postfix({"Loss": running_loss / i if i > 0 else 1})
             
             if val_dataset and i % val_every == 0:
-                acc = test_model(model, val_dataset, batch_size=batch_size, limit_dataset_size=val_sample_size)
-                print(f"Batch [{i}/{len(progress_bar)}] Validation accuracy: {acc:.2f}%")
+                val_loss, val_acc = test_model(model, val_dataset, batch_size=batch_size, limit_dataset_size=val_sample_size,seed=seed, disable_tqdm=True, dataloader_num_workers=dataloader_num_workers)
+                print(f"Batch [{i}/{len(progress_bar)}] Validation accuracy: {val_acc:.2f}%, Loss: {val_loss:.4f}")
+                
+                if i != 0:
+                    save_model(model, optimizer, epoch, f"{model_folder}/{model_name}_{epoch}-{i}_({val_loss}).pth")
+                    # val_loss_per_epoch.append((epoch, val_loss))
 
         # Print the average loss for each epoch
         print(
-            f"Epoch [{epoch+1}/{num_epochs}], Loss: {running_loss / len(dataloader):.4f} out of {len(dataloader)} batches"
+            f"Epoch [{epoch}/{cur_epoch+num_epochs-1}], Loss: {running_loss / len(dataloader):.4f} out of {len(dataloader)} batches"
         )
         
         # test the model
-        acc = test_model(model, val_dataset, batch_size=batch_size, limit_dataset_size=val_sample_size_epoch)
-        print(f"Epoch [{epoch+1}/{num_epochs}] Validation accuracy: {acc:.2f}%")
+        ep_loss, ep_acc = test_model(model, val_dataset, batch_size=batch_size, limit_dataset_size=val_sample_size_epoch,seed=seed, disable_tqdm=True, dataloader_num_workers=dataloader_num_workers)
+        print(f"Epoch [{epoch}/{cur_epoch+num_epochs-1}] Validation accuracy: {ep_acc:.2f}%, Loss: {ep_loss:.4f}")
+        val_loss_per_epoch.append((epoch,ep_loss))
         
         # Save the model
-        save_model(model, optimizer, epoch, f"{model_name}_{epoch}.pth")
+        # save_model(model, optimizer, epoch, f"{model_name}_{epoch}_({ep_acc}).pth")
+        save_model(model, optimizer, epoch, f"{model_folder}/{model_name}_{epoch}_({ep_acc}).pth")
+        
+        # Update the learning rate
+        if scheduler:
+            scheduler.step()
 
+    print("Finished Training")
+    print(val_loss_per_epoch)
+    return cur_epoch+num_epochs, val_loss_per_epoch
 
-def test_model(model, dataset, batch_size=32, limit_dataset_size=None):
+def test_model(model, dataset, batch_size=32, limit_dataset_size=None, seed=None, disable_tqdm=False, dataloader_num_workers=1):
     if limit_dataset_size:
-        dataset = torch.utils.data.Subset(dataset, range(limit_dataset_size))
-
+        ignore_size = len(dataset) - limit_dataset_size
+        if seed:
+            torch.manual_seed(seed)
+        dataset, _ = torch.utils.data.random_split(dataset, [limit_dataset_size, ignore_size])
+    
     # Create data loader
-    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=False)
+    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=dataloader_num_workers)
 
     # Move model to GPU if available
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -129,19 +152,63 @@ def test_model(model, dataset, batch_size=32, limit_dataset_size=None):
     model.eval()
     correct = 0
     total = 0
+    loss = 0
     with torch.no_grad():
-        for images, labels in tqdm(dataloader, desc="Testing", leave=False):
+        for images, labels in (pbar:=tqdm(dataloader, desc="Testing", leave=False)):
+            pbar.disable = disable_tqdm
+            
+            images = images.to(device)
+            labels = labels.to(device)
+
+            # Forward pass
+            outputs = model(images) 
+            loss += nn.CrossEntropyLoss()(outputs, labels).item()
+            _, predicted = torch.max(outputs.data, 1)
+            total += labels.size(0)
+            # print(predicted,labels)
+            correct += (predicted == labels).sum().item()
+
+    # print(f"Accuracy: {100 * correct / total:.2f}%")
+    # print("Accuracy: {:.2f}%".format(100 * correct / total))
+    # print(f"Loss: {loss / len(dataloader)}")
+    return loss / len(dataloader), 100 * correct / total
+
+def test_model_topk(model, dataset, batch_size=32, limit_dataset_size=None, topk=1, seed=None, disable_tqdm=False):
+    if limit_dataset_size:
+        ignore_size = len(dataset) - limit_dataset_size
+        if seed:
+            torch.manual_seed(seed)
+        dataset, _ = torch.utils.data.random_split(dataset, [limit_dataset_size, ignore_size])
+    
+    # Create data loader
+    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
+
+    # Move model to GPU if available
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model.to(device)
+
+    # Evaluation loop
+    model.eval()
+    correct = 0
+    total = 0
+    loss = 0
+    with torch.no_grad():
+        for images, labels in (pbar:=tqdm(dataloader, desc="Testing", leave=False)):
+            pbar.disable = disable_tqdm
+            
             images = images.to(device)
             labels = labels.to(device)
 
             # Forward pass
             outputs = model(images)
-            _, predicted = torch.max(outputs.data, 1)
+            # print(nn.CrossEntropyLoss()(outputs, labels).item())
+            loss += nn.CrossEntropyLoss()(outputs, labels).item()
+            _, predicted = torch.topk(outputs.data, topk, 1)
             total += labels.size(0)
-            correct += (predicted == labels).sum().item()
-
-    # print(f"Accuracy: {100 * correct / total:.2f}%")
-    return 100 * correct / total
+            # print(predicted,labels)
+            correct += sum([l in p for l,p in zip(labels,predicted)])
+            
+    return loss / len(dataloader), 100 * correct / total
 
 def save_model(model, optimizer, epoch, path):
     model_data = {
@@ -151,9 +218,10 @@ def save_model(model, optimizer, epoch, path):
     }
     torch.save(model_data, path)
     
-def load_model(model, optimizer, path):
+def load_model(path, model, optimizer=None):
     checkpoint = torch.load(path)
     model.load_state_dict(checkpoint["model_state_dict"])
-    optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
+    if optimizer:
+      optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
     epoch = checkpoint["epoch"]
     return model, optimizer, epoch
