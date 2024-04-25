@@ -71,5 +71,5 @@ def load_mysimplemodel2(model_path):
 
     return model
 
-model = MySimpleModel2((320, 180), 30)
-print(model(torch.randn(1, 3, 320, 180)).shape)
+# model = MySimpleModel2((320, 180), 30)
+# print(model(torch.randn(1, 3, 320, 180)).shape)
