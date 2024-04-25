@@ -8,7 +8,7 @@ from model.efficient_net_modified import EfficientNetModified, load_efficientnet
 
 model = load_efficientnetmodified("checkpoints/new-eff/new-eff_11.pth")
 
-def greet(image, topk):
+def predict(image, topk):
     # img = Image.open(image).convert("RGB")
     img = Image.fromarray(np.uint8(image)).convert('HSV')
     
@@ -29,10 +29,10 @@ def greet(image, topk):
     return pred_summary[0][0], pred_summary
 
 demo = gr.Interface(
-    fn=greet,
+    fn=predict,
     inputs=[gr.Image(), gr.Slider(minimum=1,maximum=30,value=5,step=1)],
     outputs=[gr.Textbox(label="Predicted class", lines=3), gr.Dataframe(headers=["classes","score"])],
     allow_flagging="never"
 )
 
-demo.launch()
+demo.launch(server_name='0.0.0.0')

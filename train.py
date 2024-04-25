@@ -216,6 +216,9 @@ def save_model(model, optimizer, epoch, path):
         "optimizer_state_dict": optimizer.state_dict(),
         "epoch": epoch,
     }
+    # create dir
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    
     torch.save(model_data, path)
     
 def load_model(path, model, optimizer=None):

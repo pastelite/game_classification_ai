@@ -7,9 +7,9 @@ import torchvision
 import torch.nn.functional as F
 
 # Define the model architecture
-class Net(nn.Module):
+class MySimpleModel(nn.Module):
     def __init__(self, inp_shape: tuple[int, int], num_classes: int = 30):
-        super(Net, self).__init__()
+        super(MySimpleModel, self).__init__()
         self.conv1 = nn.Sequential(
             nn.Conv2d(3, 32, kernel_size=3, padding=1),
             nn.ReLU(),
@@ -35,5 +35,13 @@ class Net(nn.Module):
         x = self.fc2(x)
         return x
         
-model = Net((320, 180), 30)
-print(model(torch.randn(1, 3, 320, 180)).shape)
+def load_mysimplemodel(model_path):
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model = MySimpleModel((320, 180), 30)
+    checkpoint = torch.load(model_path,map_location=torch.device(device))
+    model.load_state_dict(checkpoint["model_state_dict"])
+    model.eval()
+
+    return model
+# model = MyCustomModel((320, 180), 30)
+# print(model(torch.randn(1, 3, 320, 180)).shape)

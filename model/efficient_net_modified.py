@@ -26,8 +26,9 @@ class EfficientNetModified(nn.Module):
 
 
 def load_efficientnetmodified(model_path):
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = EfficientNetModified()
-    checkpoint = torch.load(model_path)
+    checkpoint = torch.load(model_path,map_location=torch.device(device))
     model.backbone.load_state_dict(checkpoint["model_state_dict"])
     model.eval()
 
