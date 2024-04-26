@@ -1,4 +1,5 @@
 import os
+import numpy as np
 import torch
 import torch.utils
 import torch.utils.data
@@ -209,6 +210,61 @@ def test_model_topk(model, dataset, batch_size=32, limit_dataset_size=None, topk
             correct += sum([l in p for l,p in zip(labels,predicted)])
             
     return loss / len(dataloader), 100 * correct / total
+
+def test_model_with_error_record(model, dataset, batch_size=32, limit_dataset_size=None, seed=None, disable_tqdm=False, dataloader_num_workers=1):
+    if limit_dataset_size:
+        ignore_size = len(dataset) - limit_dataset_size
+        if seed:
+            torch.manual_seed(seed)
+        dataset, _ = torch.utils.data.random_split(dataset, [limit_dataset_size, ignore_size])
+    
+    if seed:
+        torch.manual_seed(seed)
+    # Create data loader
+    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=dataloader_num_workers)
+
+    # Move model to GPU if available
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model.to(device)
+
+    # Evaluation loop
+    model.eval()
+    correct = 0
+    total = 0
+    loss = 0
+    err = np.array([])
+    with torch.no_grad():
+        for images, labels in (pbar:=tqdm(dataloader, desc="Testing", leave=False)):
+            pbar.disable = disable_tqdm
+            
+            images = images.to(device)
+            labels = labels.to(device)
+
+            # Forward pass
+            outputs = model(images) 
+            loss += nn.CrossEntropyLoss()(outputs, labels).item()
+            _, predicted = torch.max(outputs.data, 1)
+            total += labels.size(0)
+            # print(predicted,labels)
+            res = (predicted == labels)
+            correct += res.sum().item()
+            wrong = (predicted != labels).nonzero()
+            for i in wrong:
+                # print(f"Wrong: {predicted[i].item()}")
+                err = np.append(err, predicted[i].item())
+                
+            # err = np.append(err, wrong)
+            # wrong = torch.where(~res)[0]
+            # err = np.append(err, wrong)
+            # np.append(err, [i for i in range(len(res)) if not res[i]])
+            # correct += (predicted == labels).sum().item()  
+            
+    unique, counts = np.unique(err, return_counts=True)
+    braid = dict(zip(unique.astype(int) , counts))
+    # print(f"Accuracy: {100 * correct / total:.2f}%")
+    # print("Accuracy: {:.2f}%".format(100 * correct / total))
+    # print(f"Loss: {loss / len(dataloader)}")
+    return loss / len(dataloader), 100 * correct / total, braid
 
 def save_model(model, optimizer, epoch, path):
     model_data = {

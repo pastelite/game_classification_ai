@@ -1,13 +1,19 @@
 import torch.nn as nn
-import torch.optim as optim
 import torch.utils.data
-import torchvision.transforms as transforms
 import torch
-import torchvision
 import torch.nn.functional as F
+from torchvision import transforms as T
 
 # Define the model architecture
 class MySimpleModel(nn.Module):
+    transform = T.Compose(
+        [
+            T.Resize((180, 320)),
+            T.ToTensor(),
+            T.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5]),
+        ]
+    )
+    
     def __init__(self, inp_shape: tuple[int, int], num_classes: int = 30):
         super(MySimpleModel, self).__init__()
         self.conv1 = nn.Sequential(

@@ -7,9 +7,18 @@ import torch
 import torchvision
 import torch.nn.functional as F
 import math
+from torchvision import transforms as T
 
 # Define the model architecture
 class MySimpleModel2(nn.Module):
+    transform = T.Compose(
+        [
+            T.Resize((180, 320)),
+            T.ToTensor(),
+            T.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5]),
+        ]
+    )
+    
     def __init__(self, inp_shape: tuple[int, int], num_classes: int = 30):
         super(MySimpleModel2, self).__init__()
         self.conv1 = nn.Sequential(
@@ -55,9 +64,9 @@ class MySimpleModel2(nn.Module):
         x = self.conv3(x)
         x = self.conv4(x)
         x = self.finalconv(x)
-        print(x.shape)
+        # print(x.shape)
         x = x.view(x.size(0), -1) # flatten
-        print(x.shape)
+        # print(x.shape)
         x = F.relu(self.fc1(x))
         x = self.fc2(x)
         return x

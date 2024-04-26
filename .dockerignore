@@ -2,4 +2,3 @@ dataset/raw/*
 dataset/processed/*
 **/__pycache__/
 **/test_temp/*
-checkpoints/my-shitty-model/*
