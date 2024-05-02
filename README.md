@@ -1,3 +1,5 @@
+## Demo
+Demo is currently hosted on Huggingface with this link: https://huggingface.co/spaces/pastelite/game-classify
 ## How to run this
 1. Clone the repository
 ```
